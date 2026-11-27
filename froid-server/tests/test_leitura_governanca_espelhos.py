@@ -79,6 +79,31 @@ class OSiteCopiaAsFontes(unittest.TestCase):
                 for promessa in ("sem média", "no average", "sin promedio", "sans moyenne"):
                     self.assertNotIn(promessa, texto)
 
+    def test_nada_promete_o_nivel_de_decisao_que_ainda_nao_existe(self):
+        """O campo "corporativa, regional ou local" no plano de ação foi
+        aprovado e não foi construído. Nem o site nem a proposta o prometem."""
+        promessas = ("corporativa, regional ou local", "corporate, regional or local",
+                     "corporativa, regional o local", "corporative, régionale ou locale",
+                     "nível de decisão")
+        textos = [(str(p.relative_to(SITE)), t) for p, t in paginas_que_citam_o_adicional()]
+        textos.append(("proposta_nr1.py",
+                       (SERVER_DIR / "proposta_nr1.py").read_text(encoding="utf-8")))
+        for nome, texto in textos:
+            with self.subTest(pagina=nome):
+                for promessa in promessas:
+                    self.assertNotIn(promessa, texto)
+
+    def test_o_site_explica_como_funciona(self):
+        for idioma, marca in (("", "COMO FUNCIONA NA PRÁTICA"), ("en/", "HOW IT WORKS IN PRACTICE"),
+                              ("es/", "CÓMO FUNCIONA EN LA PRÁCTICA"),
+                              ("fr/", "COMMENT CELA FONCTIONNE EN PRATIQUE")):
+            with self.subTest(idioma=idioma or "pt"):
+                texto = (SITE / f"{idioma}nr1/apresentacao-nr1.html").read_text(encoding="utf-8")
+                secao = texto[texto.index('id="leitura-de-governanca"'):]
+                secao = secao[: secao.index("</section>")]
+                self.assertIn(marca, secao)
+                self.assertEqual(secao.count("<li>"), 4)
+
     def test_o_site_nao_apresenta_o_adicional_como_obrigatorio(self):
         frases = {
             "": "Não é necessária para cumprir a NR-1",

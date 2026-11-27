@@ -215,9 +215,9 @@ def renderizar(r: dict) -> str:
 <h3>Adicional opcional — {e(leitura_governanca.NOME)}</h3>
 <p>Com {estab}, a {e(r['empresa'])} pode contratar a leitura da liderança por função: gerentes,
 subgerentes ou supervisores lidos como um grupo que atravessa os endereços, com o resultado
-lançado no inventário de cada estabelecimento onde a função existe. Mostra onde nasce o risco
-— na política da empresa, na camada de liderança ou no local — e o nível de decisão de cada
-medida do plano de ação.</p>
+lançado no inventário de cada estabelecimento onde a função existe. No inventário de cada
+endereço, a equipe e a liderança aparecem lado a lado, o que mostra se o risco nasce na política
+da empresa, na camada de liderança ou no local.</p>
 <ul>
   <li>Condição: ao menos {leitura_governanca.PESSOAS_NA_FUNCAO_MINIMAS} pessoas numa mesma função
   de liderança, confirmada pela simulação com o cadastro antes de abrir a campanha. A cobrança do

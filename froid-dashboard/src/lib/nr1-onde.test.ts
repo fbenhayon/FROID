@@ -62,6 +62,13 @@ describe("onde vale a linha do inventário", () => {
     expect(fonte).toContain('setEstabelecimento("");');
   });
 
+  it("a prévia dos convites nomeia também o grupo por função", () => {
+    // "matrícula;Gerentes de loja" casa com qualquer unidade; a prévia que
+    // conta pessoas por grupo precisa mostrar o nome, não o identificador.
+    const fonte = readFileSync(join(__dirname, "..", "pages", "Nr1Campaign.tsx"), "utf-8");
+    expect(fonte).toContain("nome: unidades.find((u) => u.unit_id === unitId)?.name || unitId");
+  });
+
   it("as duas telas usam a mesma regra", () => {
     for (const pagina of ["Nr1Inventario.tsx", "Nr1ActionPlan.tsx"]) {
       const fonte = readFileSync(join(__dirname, "..", "pages", pagina), "utf-8");

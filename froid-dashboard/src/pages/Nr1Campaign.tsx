@@ -688,10 +688,13 @@ export const Nr1Campaign: React.FC<Props> = ({ user }) => {
       .map(([unitId, pessoas]) => ({
         unitId,
         pessoas,
-        nome: setores.find((s) => s.unit_id === unitId)?.name || unitId,
+        // Todas as unidades, e não só os setores: a linha colada também pode
+        // apontar um grupo por função (Leitura de Governança, "Gerentes de
+        // loja"), e o operador precisa ver o nome dele, não um identificador.
+        nome: unidades.find((u) => u.unit_id === unitId)?.name || unitId,
       }))
       .sort((a, b) => a.pessoas - b.pessoas);
-  }, [linhasInterpretadas, setores]);
+  }, [linhasInterpretadas, unidades]);
 
   const setoresAbaixoDoPiso = useMemo(
     () => porSetor.filter((s) => s.pessoas < PISO_RECORTE),
