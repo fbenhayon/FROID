@@ -119,6 +119,19 @@ nao das respostas que o produziram — depois de consolidado, a resposta
 individual nao responde nenhuma pergunta que o agregado nao responda. Ha
 ferramenta propria para purga-las apos a consolidacao.
 
+## A etapa de valor nao calcula, ou mostra "0 trabalhador(es)"
+
+O valor mensal e calculado sobre o efetivo informado em cada
+**estabelecimento** (o endereco). O efetivo dos **setores** nao entra no
+preco: o setor serve para o recorte do relatorio. Quem preencheu so os setores
+e deixou o estabelecimento em branco ve "0 trabalhador(es)" e nenhum valor.
+
+Para corrigir, volte a etapa Estabelecimentos e use "Corrigir efetivo" em cada
+estabelecimento. Nao e preciso arquivar nem recadastrar. A etapa Valor calcula
+assim que houver efetivo. Se o efetivo estiver preenchido e aparecer "Nao foi
+possivel calcular o valor", use "Tentar de novo"; persistindo, fale com o
+suporte informando o CNPJ.
+
 ## Erros que o teste real produziu, e como evita-los
 
 - **Hora em branco na janela de coleta.** O seletor do navegador deixa a hora

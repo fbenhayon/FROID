@@ -445,6 +445,32 @@ export const VERBETES: VerbeteExplica[] = [
     chaves: ["editar", "corrigir", "alterar", "errei"],
   },
   {
+    // Nasceu de um cliente real (25/11/2026) parado na etapa de valor com
+    // 1 estabelecimento de efetivo 0. O Explica nao le o cadastro da empresa —
+    // so a pergunta —, entao a resposta precisa nomear a causa provavel e o
+    // caminho, sem depender de enxergar os dados.
+    id: "valor-nao-calcula",
+    tema: "operacao",
+    pergunta: "A etapa “Valor mensal” não calcula. O que faltou?",
+    resposta: [
+      "Quase sempre falta o efetivo dos estabelecimentos. O valor mensal é calculado sobre o número de trabalhadores informado em cada estabelecimento (o endereço). Se o texto da etapa diz “0 trabalhador(es)”, nenhum estabelecimento tem esse número preenchido.",
+      "O efetivo dos setores não entra nesse cálculo: o setor serve para o recorte do relatório, não para o preço. Quem preencheu só os setores e deixou o estabelecimento em branco vê 0 do mesmo jeito.",
+      "Para corrigir: volte à etapa Estabelecimentos e, em cada um, use “Corrigir efetivo” para informar quantas pessoas trabalham ali. Não é preciso arquivar nem recadastrar nada. Em seguida, a etapa Valor calcula sozinha.",
+      "Se o efetivo estiver preenchido e mesmo assim aparecer “Não foi possível calcular o valor”, use “Tentar de novo”. Persistindo, fale com o suporte informando o CNPJ.",
+    ],
+    chaves: [
+      "valor",
+      "preço",
+      "calculando",
+      "não calcula",
+      "travou",
+      "zero trabalhadores",
+      "0 trabalhador",
+      "efetivo",
+      "confirmar valor",
+    ],
+  },
+  {
     id: "nomes",
     tema: "operacao",
     pergunta: "Quando eu carrego os nomes dos funcionários?",

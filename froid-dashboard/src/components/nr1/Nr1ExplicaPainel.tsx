@@ -80,6 +80,12 @@ export const Nr1ExplicaPainel: React.FC<Props> = ({
   contexto,
 }) => {
   const [selecionado, setSelecionado] = useState(verbeteSugerido);
+  // A tela pode trocar a sugestao sem desmontar o painel — o cadastro da
+  // empresa passa a sugerir "valor-nao-calcula" quando o efetivo esta em 0.
+  // So o estado inicial deixaria o painel preso na sugestao da etapa anterior.
+  useEffect(() => {
+    if (verbeteSugerido) setSelecionado(verbeteSugerido);
+  }, [verbeteSugerido]);
   const [pergunta, setPergunta] = useState("");
   const [pensando, setPensando] = useState(false);
   const [erro, setErro] = useState("");
